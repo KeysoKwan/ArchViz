@@ -2,8 +2,15 @@
     Properties {
         _Color ("Color", Color) = (1,1,1,1)
         _MainTex ("Albedo (RGB)", 2D) = "white" {}
+
+        _NormalTex("Normal", 2D) = "bump"{}
+        _NormalIntensity("Intensity", float) = 1
+
+        _OcclusionTex("Occlusion", 2D) = "bump"{}
+        _OcclusionIntensity("OcclusionIntensity", float) = 1
+
         _Glossiness ("Smoothness", Range(0,1)) = 0.5
-        _Metallic ("Metallic", Range(0,1)) = 0.0
+        _MetallicTex ("MetallicTex", 2D) = "white" {}
     }
     SubShader {
         Tags { "RenderType"="Opaque" }
@@ -20,13 +27,20 @@
         UNITY_DECLARE_TEX2DARRAY(_ReflectionTex);
         int _Index;
 
+        sampler2D _NormalTex;
+        float _NormalIntensity;
+
+        sampler2D _OcclusionTex;
+        float _OcclusionIntensity;
+
+        sampler2D _MetallicTex;
+
         struct Input {
             float2 uv_MainTex;
             float4 screenPos;
         };
 
         half _Glossiness;
-        half _Metallic;
         fixed4 _Color;
 
         // Add instancing support for this shader. You need to check 'Enable Instancing' on materials that use the shader.
@@ -48,10 +62,20 @@
             fixed4 c = tex2D (_MainTex, IN.uv_MainTex) * _Color;
             // reflectionColor
             fixed3 reflectionColor = UNITY_SAMPLE_TEX2DARRAY(_ReflectionTex, float3( IN.screenPos.xy / IN.screenPos.w, _Index));
+
             o.Albedo = lerp(c.rgb,reflectionColor.rgb,_Glossiness);
             // Metallic and smoothness come from slider variables
-            o.Metallic = _Metallic;
-            o.Smoothness = _Glossiness;
+            fixed4 metallic = tex2D (_MetallicTex, IN.uv_MainTex);
+            o.Metallic = metallic.r;
+            o.Smoothness = metallic.a * _Glossiness;
+
+            fixed3 n = UnpackNormal(tex2D(_NormalTex, IN.uv_MainTex)).rgb;
+            n.x *= _NormalIntensity;
+            n.y *= _NormalIntensity;
+            o.Normal = n;
+
+            o.Occlusion = tex2D (_OcclusionTex, IN.uv_MainTex).r * _OcclusionIntensity;
+
             o.Alpha = c.a;
         }
         ENDCG
